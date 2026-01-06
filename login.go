@@ -156,6 +156,6 @@ func main() {
 			log.Fatalf("Unable to retrieve message: %v", err)
 		}
 		merchant, email_time, amount, creditCardNumber, transactionType := ParseMessage(string(msg.Raw))
-		fmt.Println(merchant, email_time, amount, creditCardNumber, transactionType)
+		fmt.Println(m.Id, merchant, email_time, amount, creditCardNumber, transactionType)
 	}
 }

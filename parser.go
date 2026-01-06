@@ -3,7 +3,6 @@ package main
 import (
 	"bytes"
 	"encoding/base64"
-	"fmt"
 	"log"
 	"regexp"
 	"strings"
@@ -24,49 +23,86 @@ func ParseMessage(message string) (string, time.Time, string, string, string) {
 	var email_time time.Time
 	var amount, merchant, creditCardNumber, transactionType string
 	if strings.Contains(string(data), "Scapia") {
-		fmt.Println("Parsing Mail from Scapia")
 		merchant, email_time, amount, creditCardNumber, transactionType = parseScapiaMail(msg)
+	} else if strings.Contains(string(data), "Axis") {
+		merchant, email_time, amount, creditCardNumber, transactionType = parseAxisMail(msg)
+	} else if strings.Contains(string(data), "HDFC") {
+		merchant, email_time, amount, creditCardNumber, transactionType = parseHdfcMail(msg)
 	} else {
-		merchant, email_time, amount = genericParser(msg)
+		merchant, email_time, amount, creditCardNumber, transactionType = genericParser(msg)
 	}
-
-	// fmt.Println(string(data))
-	// fmt.Println(msg.GetHeader("Subject"))
-	// fmt.Println(msg)
 	return merchant, email_time, amount, creditCardNumber, transactionType
 }
 
-func parseScapiaMail(msg *enmime.Envelope) (string, time.Time, string, string, string) {
-	email_time := parseMailTime(msg.GetHeader("Date"))
-	amountRegex := regexp.MustCompile(`Amount\s*₹([\d,]+\.?\d*)`)
-	amountMatch := amountRegex.FindStringSubmatch(msg.Text)
-	var amount string
-	if len(amountMatch) > 1 {
-		amount = amountMatch[1]
+func transactionTypeFetcher(msg string) string {
+	var transactionType string = "undefined"
+	if strings.Contains(msg, "Scapia") || strings.Contains(msg, "HDFC Bank Credit Card") {
+		transactionType = "Credit Card"
+	} else if strings.Contains(msg, "BLOCKUPI") {
+		transactionType = "UPI"
+	} else if strings.Contains(msg, "BLOCKUPI") {
+		transactionType = "UPI"
 	}
-	merchantRegex := regexp.MustCompile(`Merchant\s*(.+?)(?:\n|Not you)`)
-	merchantMatch := merchantRegex.FindStringSubmatch(msg.Text)
-	var merchant string
-	if len(merchantMatch) > 1 {
-		merchant = strings.TrimSpace(merchantMatch[1])
+	return transactionType
+}
+
+func regexMatch(regexString string, msg string) string {
+	regex := regexp.MustCompile(regexString)
+	regexMatch := regex.FindStringSubmatch(msg)
+	var regexItem string
+	if len(regexMatch) > 1 {
+		regexItem = regexMatch[1]
 	}
-	var creditCardNumber string
-	creditCardRegex := regexp.MustCompile(`Credit Card ending in (\d+) has`)
-	creditCardMatch := creditCardRegex.FindStringSubmatch(msg.Text)
-	if len(creditCardMatch) > 1 {
-		creditCardNumber = strings.TrimSpace(creditCardMatch[1])
-	}
-	return merchant, email_time, amount, creditCardNumber, "Credit Card"
+	return regexItem
 }
 
 func parseMailTime(date_header string) time.Time {
-	email_time, err := time.Parse("Mon, 2 Jan 2006 15:04:05 -0700", date_header)
+	emailTime, err := time.Parse("Mon, 2 Jan 2006 15:04:05 -0700", date_header)
 	if err != nil {
 		log.Fatalf("Error parsing the time: %v", err)
 	}
-	return email_time
+	return emailTime
 }
 
-func genericParser(msg *enmime.Envelope) (string, time.Time, string) {
-	return "", time.Time{}, ""
+func parseScapiaMail(msg *enmime.Envelope) (string, time.Time, string, string, string) {
+	emailTime := parseMailTime(msg.GetHeader("Date"))
+	amount := regexMatch(`Amount\s*₹([\d,]+\.?\d*)`, msg.Text)
+	receiverInformation := regexMatch(`Merchant\s*(.+?)(?:\n|Not you)`, msg.Text)
+	senderInformation := regexMatch(`Credit Card ending in (\d+) has`, msg.Text)
+	transactionType := transactionTypeFetcher(msg.Text)
+	return strings.TrimSpace(receiverInformation),
+		emailTime,
+		strings.TrimSpace(amount),
+		strings.TrimSpace(senderInformation),
+		strings.TrimSpace(transactionType)
+}
+
+func parseAxisMail(msg *enmime.Envelope) (string, time.Time, string, string, string) {
+	emailTime := parseMailTime(msg.GetHeader("Date"))
+	amount := regexMatch(`Amount Debited:\s*INR\s*([\d,]+\.?\d*)`, msg.Text)
+	receiverInformation := regexMatch(`Transaction Info:\s*(.*)\s*`, msg.Text)
+	senderInformation := regexMatch(`Account Number:\s*(.*)\s`, msg.Text)
+	transactionType := transactionTypeFetcher(msg.Text)
+	return strings.TrimSpace(receiverInformation),
+		emailTime,
+		strings.TrimSpace(amount),
+		strings.TrimSpace(senderInformation),
+		strings.TrimSpace(transactionType)
+}
+
+func parseHdfcMail(msg *enmime.Envelope) (string, time.Time, string, string, string) {
+	emailTime := parseMailTime(msg.GetHeader("Date"))
+	amount := regexMatch(`Rs.\s*([\d,]+\.?\d*) is`, msg.Text)
+	receiverInformation := regexMatch(`towards\s+(.+?)\s+on\s+\d`, msg.Text)
+	senderInformation := regexMatch(`HDFC\sBank\sCredit\sCard\sending\s(.*)\stowards`, msg.Text)
+	transactionType := transactionTypeFetcher(msg.Text)
+	return strings.TrimSpace(receiverInformation),
+		emailTime,
+		strings.TrimSpace(amount),
+		strings.TrimSpace(senderInformation),
+		strings.TrimSpace(transactionType)
+}
+
+func genericParser(msg *enmime.Envelope) (string, time.Time, string, string, string) {
+	return "", time.Time{}, "", "", ""
 }
