@@ -20,7 +20,7 @@ func getClient(config *oauth2.Config) *http.Client {
 	// The file token.json stores the user's access and refresh tokens, and is
 	// created automatically when the authorization flow completes for the first
 	// time.
-	tokFile := "token.json"
+	tokFile := "./creds/token.json"
 	tok, err := tokenFromFile(tokFile)
 	if err != nil {
 		tok = getTokenFromWeb(config)
@@ -110,7 +110,7 @@ func saveToken(path string, token *oauth2.Token) {
 
 func main() {
 	ctx := context.Background()
-	b, err := os.ReadFile("./desktop-app.json")
+	b, err := os.ReadFile("./creds/desktop-app.json")
 	if err != nil {
 		log.Fatalf("Unable to read client secret file: %v", err)
 	}
@@ -149,20 +149,13 @@ func main() {
 		fmt.Println("No messages found.")
 		return
 	}
-	// fmt.Println(len(messages.Messages))
-	// for _, m := range messages.Messages {
-	// 	msg, err := srv.Users.Messages.Get(user, m.Id).Format("full").Do()
-	// 	if err != nil {
-	// 		log.Fatalf("Unable to retrieve message: %v", err)
-	// 	}
-	// 	fmt.Println("Message snippet: %s", msg.Payload.Body)
-	// }
-	// fmt.Println("Messages:", messages.Messages)
+
 	for _, m := range messages.Messages {
-		msg, err := srv.Users.Messages.Get(user, m.Id).Format("full").Do()
+		msg, err := srv.Users.Messages.Get(user, m.Id).Format("raw").Do()
 		if err != nil {
 			log.Fatalf("Unable to retrieve message: %v", err)
 		}
-		fmt.Println(getMessageBody(msg.Payload))
+		merchant, email_time, amount, creditCardNumber, transactionType := ParseMessage(string(msg.Raw))
+		fmt.Println(merchant, email_time, amount, creditCardNumber, transactionType)
 	}
 }
