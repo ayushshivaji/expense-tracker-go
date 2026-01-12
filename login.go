@@ -141,6 +141,10 @@ func main() {
 	// 	fmt.Printf("- %s\n %s\n", l.Id, l.Name)
 	// }
 
+	db := createDB()
+	ensureDbSchema(db)
+	defer db.Close()
+
 	messages, err := srv.Users.Messages.List(user).MaxResults(10).LabelIds("Label_1057535226825725461").Do()
 	if err != nil {
 		log.Fatalf("Unable to retrieve labels: %v", err)
@@ -157,5 +161,7 @@ func main() {
 		}
 		merchant, email_time, amount, creditCardNumber, transactionType := ParseMessage(string(msg.Raw))
 		fmt.Println(m.Id, merchant, email_time, amount, creditCardNumber, transactionType)
+
+		writeTransactionToDB(db, m.Id, merchant, creditCardNumber, amount, email_time)
 	}
 }

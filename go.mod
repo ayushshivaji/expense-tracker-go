@@ -4,6 +4,7 @@ go 1.25.5
 
 require (
 	github.com/jhillyerd/enmime v1.3.0
+	github.com/lib/pq v1.10.9
 	golang.org/x/oauth2 v0.34.0
 	google.golang.org/api v0.258.0
 )
