@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"encoding/base64"
+	"fmt"
 	"log"
 	"regexp"
 	"strconv"
@@ -73,15 +74,27 @@ func parseMailTime(date_header string) time.Time {
 	return emailTime
 }
 
+func amountFetcher(regexString string, msg string) float64 {
+	amount := strings.ReplaceAll(regexMatch(regexString, msg), ",", "")
+	amountFloat, errorFloat := strconv.ParseFloat(amount, 64)
+	if strings.Contains(string(msg), "credited") || strings.Contains(string(msg), "received") {
+		amountFloat *= 1
+	} else {
+		amountFloat *= -1
+	}
+	if errorFloat != nil {
+		fmt.Println("Error parsing the amount: ", errorFloat)
+		return 0
+	}
+	return amountFloat
+}
+
 func parseScapiaMail(msg *enmime.Envelope) (string, time.Time, float64, string, string) {
 	emailTime := parseMailTime(msg.GetHeader("Date"))
 	receiverInformation := regexMatch(`Merchant\s*(.+?)(?:\n|Not you)`, msg.Text)
 	senderInformation := regexMatch(`Credit Card ending in (\d+) has`, msg.Text)
 	transactionType := transactionTypeFetcher(msg.Text)
-	amount, errorFloat := strconv.ParseFloat(strings.ReplaceAll(regexMatch(`Amount\s*₹([\d,]+\.?\d*)`, msg.Text), ",", ""), 64)
-	if errorFloat != nil {
-		log.Fatalf("Error parsing the amount: %v", errorFloat)
-	}
+	amount := amountFetcher(`Amount\s*₹([\d,]+\.?\d*)`, msg.Text)
 	return receiverInformation,
 		emailTime,
 		amount,
@@ -94,10 +107,7 @@ func parseAxisMail(msg *enmime.Envelope) (string, time.Time, float64, string, st
 	receiverInformation := regexMatch(`Transaction Info:\s*(.*)\s*`, msg.Text)
 	senderInformation := regexMatch(`Account Number:\s*(.*)\s`, msg.Text)
 	transactionType := transactionTypeFetcher(msg.Text)
-	amount, errorFloat := strconv.ParseFloat(strings.ReplaceAll(regexMatch(`Amount Debited:\s*INR\s*([\d,]+\.?\d*)`, msg.Text), ",", ""), 64)
-	if errorFloat != nil {
-		log.Fatalf("Error parsing the amount: %v", errorFloat)
-	}
+	amount := amountFetcher(`Amount Debited:\s*INR\s*([\d,]+\.?\d*)`, msg.Text)
 	return receiverInformation,
 		emailTime,
 		amount,
@@ -110,10 +120,7 @@ func parseHdfcMail(msg *enmime.Envelope) (string, time.Time, float64, string, st
 	receiverInformation := regexMatch(`towards\s+(.+?)\s+on\s+\d`, msg.Text)
 	senderInformation := regexMatch(`HDFC\sBank\sCredit\sCard\sending\s(.*)\stowards`, msg.Text)
 	transactionType := transactionTypeFetcher(msg.Text)
-	amount, errorFloat := strconv.ParseFloat(strings.ReplaceAll(regexMatch(`Rs.\s*([\d,]+\.?\d*) is`, msg.Text), ",", ""), 64)
-	if errorFloat != nil {
-		log.Fatalf("Error parsing the amount: %v", errorFloat)
-	}
+	amount := amountFetcher(`Rs.\s*([\d,]+\.?\d*) is`, msg.Text)
 	return receiverInformation,
 		emailTime,
 		amount,
@@ -126,10 +133,7 @@ func parseIciciMail(msg *enmime.Envelope) (string, time.Time, float64, string, s
 	receiverInformation := regexMatch(`Info:\s*(.+?)\.\s`, msg.Text)
 	senderInformation := regexMatch(`Your\sICICI\sBank\sCredit\sCard\s+(.*?)\shas`, msg.Text)
 	transactionType := transactionTypeFetcher(msg.Text)
-	amount, errorFloat := strconv.ParseFloat(strings.ReplaceAll(regexMatch(`transaction\sof\sINR\s+([\d,]+\.?\d*)\son`, msg.Text), ",", ""), 64)
-	if errorFloat != nil {
-		log.Fatalf("Error parsing the amount: %v", errorFloat)
-	}
+	amount := amountFetcher(`transaction\sof\sINR\s+([\d,]+\.?\d*)\son`, msg.Text)
 	return receiverInformation,
 		emailTime,
 		amount,
@@ -142,10 +146,7 @@ func parseSbiMail(msg *enmime.Envelope) (string, time.Time, float64, string, str
 	receiverInformation := regexMatch(`debit\sby\s(.*?)\sof`, msg.Text)
 	senderInformation := regexMatch(`Your\sA\/C\s(.*?)\shas`, msg.Text)
 	transactionType := transactionTypeFetcher(msg.Text)
-	amount, errorFloat := strconv.ParseFloat(strings.ReplaceAll(regexMatch(`Rs\s(.*?)\son`, msg.Text), ",", ""), 64)
-	if errorFloat != nil {
-		log.Fatalf("Error parsing the amount: %v", errorFloat)
-	}
+	amount := amountFetcher(`Rs\s(.*?)\son`, msg.Text)
 	return receiverInformation,
 		emailTime,
 		amount,
