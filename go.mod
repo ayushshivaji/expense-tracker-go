@@ -3,6 +3,7 @@ module expense-tracker-go
 go 1.25.5
 
 require (
+	github.com/go-chi/chi/v5 v5.2.3
 	github.com/jhillyerd/enmime v1.3.0
 	github.com/lib/pq v1.10.9
 	golang.org/x/oauth2 v0.34.0

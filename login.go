@@ -162,6 +162,6 @@ func main() {
 		merchant, email_time, amount, creditCardNumber, transactionType := ParseMessage(string(msg.Raw))
 		fmt.Println(m.Id, merchant, email_time, amount, creditCardNumber, transactionType)
 
-		writeTransactionToDB(db, m.Id, merchant, creditCardNumber, amount, email_time)
+		fmt.Println(writeTransactionToDB(db, m.Id, merchant, creditCardNumber, amount, email_time))
 	}
 }
